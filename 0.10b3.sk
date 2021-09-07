@@ -1,0 +1,538 @@
+﻿options:
+	bot: Overlord
+	
+command clearfarm:
+	trigger:
+		delete {farm::*}
+		send "done"
+	
+discord command farm [<text>]:
+	prefixes: =
+	trigger:
+		{farm::%discord id of event-user%::funds} isn't set:
+			set {farm::%discord id of event-user%::funds} to 2
+		{farm::%discord id of event-user%::unlock::plot1} is not set:
+			set {farm::%discord id of event-user%::unlock::plot1} to true
+		arg-1 = "payfine":
+			{farm::%discord id of event-user%::cure::research} is set:
+				set {_cost} to 20000*(1+0.35)^{farm::%discord id of event-user%::finepaid}
+				if {farm::%discord id of event-user%::funds} >= {_cost}:
+					delete {farm::%discord id of event-user%::cure::*}
+					add 1 to {farm::%discord id of event-user%::finepaid}
+					reply with "Paid fine of **$%{_cost}%**. %mention of event-user%"
+					remove {_cost} from {farm::%discord id of event-user%::funds}
+				else:
+					reply with "**Error!** You don't have enough funds to pay fine! (Cost: **$%{_cost}%**) %mention of event-user%"
+			else:
+				reply with "**Warning!** There's no investigation happening on you %mention of event-user%"
+		arg-1 isn't set:
+			make embed:
+				set title of embed to "%event-user%'s farm [Funds: $%{farm::%discord id of event-user%::funds}%]"
+				set color of embed to color from rgb 30, 64, 22
+				{farm::%discord id of event-user%::1::crop} is not set:
+					add inline field named "1: EMPTY!" with value "`=farm 1` to plant" to fields of embed
+				else:
+					set {_crop} to difference between {farm::%discord id of event-user%::1::start} and now
+					set {_time} to difference between {_crop} and {farm::%discord id of event-user%::1::end}
+					now < {farm::%discord id of event-user%::1::endtime}:
+						add inline field named "1: %{farm::%discord id of event-user%::1::crop}%" with value "`%time({_time})%` left" to fields of embed
+					else:
+						add inline field named "1: FINISHED!" with value "`=farm 1` to re-plant" to fields of embed
+				{farm::%discord id of event-user%::unlock::plot2} is set:
+					{farm::%discord id of event-user%::2::crop} is not set:
+						add inline field named "2: EMPTY!" with value "`=farm 2` to plant" to fields of embed
+					else:
+						set {_crop} to difference between {farm::%discord id of event-user%::2::start} and now
+						set {_time} to difference between {_crop} and {farm::%discord id of event-user%::2::end}
+						add inline field named "2: %{farm::%discord id of event-user%::2::crop}%" with value "`%time({_time})%` left" to fields of embed
+				{farm::%discord id of event-user%::unlock::plot3} is set:
+					{farm::%discord id of event-user%::3::crop} is not set:
+						add inline field named "3: EMPTY!" with value "`=farm 3` to plant" to fields of embed
+					else:
+						set {_crop} to difference between {farm::%discord id of event-user%::3::start} and now
+						set {_time} to difference between {_crop} and {farm::%discord id of event-user%::3::end}
+						add inline field named "3: %{farm::%discord id of event-user%::3::crop}%" with value "`%time({_time})%` left" to fields of embed
+				add field named "Commands" with value "`=farm inv`, `=farm sell`, `=farm unlock`" to fields of embed
+				{farm::%discord id of event-user%::cure::research} is set:
+					set {_base} to 2628000
+					{farm::%discord id of event-user%::unlock::anticurehide} is set:
+						add 0.05 to {_add}
+					{farm::%discord id of event-user%::unlock::anticure1} is set:
+						add 0.1 to {_add}
+					{farm::%discord id of event-user%::unlock::anticure2} is set:
+						add 0.2 to {_add}
+					{farm::%discord id of event-user%::unlock::anticure3} is set:
+						add 0.2 to {_add}
+					set {_done} to {_base}*(1+{_add})
+					set {_researchleft} to {_done}-{farm::%discord id of event-user%::cure::research}
+					set {_timeleft} to "{_researchleft}/{farm::%discord id of event-user%::cure::funding} seconds" parsed as timespan
+					{farm::%discord id of event-user%::cure::funding} >= 1:
+						set {_pr} to "Low"
+					{farm::%discord id of event-user%::cure::funding} >= 3:
+						set {_pr} to "Med"
+					{farm::%discord id of event-user%::cure::funding} >= 6:
+						set {_pr} to "High"
+					{farm::%discord id of event-user%::cure::funding} >= 10:
+						set {_pr} to "Max"
+					add field named ":mag: Investigation (%{farm::%discord id of event-user%::cure::research}/{_done}*100%%% complete)" with value "**Priority**: %{_pr}%%nl%**Research done:** [%{farm::%discord id of event-user%::cure::research}+0%]%nl%**Game over in**: `%{_timeleft}%`" to fields of embed
+				set footer of embed to "Requested by %discord name of event-member%"
+				set timestamp of embed to now
+				reply with last embed
+		arg-1 = "1" or "2" or "3":
+			{farm::%discord id of event-user%::unlock::plot%arg-1%} is not set:
+				reply with "%mention of event-user%, this plot needs to be unlocked first: **=farm unlock**"
+				stop
+			{farm::%discord id of event-user%::%arg-1%::crop} is set:
+				reply with "This plot is already growing **%{farm::%discord id of event-user%::%arg-1%::crop}%**. %mention of event-user%"
+			else:
+				set {farm::%discord id of event-user%::picktheplot} to arg-1
+				reply with "**Pick crop. Additional ones can be unlocked in `=farm unlock`.** %mention of event-user%" and store it in {_growcrop}
+				make new dropdown with id "growplot/%arg-1%":
+					set min range of dropdown to 1
+					set max range of dropdown to 1
+					add new choice with value "farm/growplot/corn/%arg-1%" with name "Corn" with desc "-$2, produces 2-5+, time: 10m" with reaction "corn" to choices of dropdown
+					add new choice with value "farm/growplot/potato/%arg-1%" with name "Potato" with desc "-$15, produces 3-6+, time: 30m" with reaction "potato" to choices of dropdown
+					{farm::%discord id of event-user%::unlock::cropapple} is set:
+						add new choice with value "farm/growplot/apple/%arg-1%" with name "Apple" with desc "-$30, produces 4-7+, time: 1h 15m" with reaction "apple" to choices of dropdown
+					{farm::%discord id of event-user%::unlock::croppineapple} is set:
+						add new choice with value "farm/growplot/pineapple/%arg-1%" with name "Pinepple" with desc "-$50, produces 3-4+, time: 2h 25m" with reaction "pineapple" to choices of dropdown
+					{farm::%discord id of event-user%::unlock::cropbanana} is set:
+						add new choice with value "farm/growplot/banana/%arg-1%" with name "Bananas" with desc "-$125, produces 6-14+, time: 3h 50m" with reaction "banana" to choices of dropdown
+					{farm::%discord id of event-user%::unlock::cropgrape} is set:
+						add new choice with value "farm/growplot/grape/%arg-1%" with name "Grapes" with desc "-$230, produces 4-7+, time: 5h" with reaction "grapes" to choices of dropdown
+					{farm::%discord id of event-user%::unlock::croplemon} is set:
+						add new choice with value "farm/growplot/lemon/%arg-1%" with name "Lemons" with desc "-$400, produces 4-7+, time: 6h 30m" with reaction "lemon" to choices of dropdown
+					{farm::%discord id of event-user%::unlock::croppoppy} is set:
+						add new choice with value "farm/growplot/poppy/%arg-1%" with name "Poppies" with desc "-$200, produces 5-8+, time: 1d" with reaction "tulip" to choices of dropdown
+				set components of {_growcrop} to last dropdown
+		arg-1 = "inv":
+			make embed:
+				set title of embed to "%event-user%'s crops [Funds: $%{farm::%discord id of event-user%::funds}%]"
+				set color of embed to color from rgb 30, 64, 22
+				set description of embed to "**Corn:** %{farm::%discord id of event-user%::inv::corn}+0%%nl%**Potatoes:** %{farm::%discord id of event-user%::inv::potato}+0%%nl%**Apples:** %{farm::%discord id of event-user%::inv::apple}+0%%nl%**Pineapples:** %{farm::%discord id of event-user%::inv::pineapple}+0%%nl%**Bananas:** %{farm::%discord id of event-user%::inv::banana}+0%%nl%**Grapes:** %{farm::%discord id of event-user%::inv::grape}+0%%nl%**Lemon:** %{farm::%discord id of event-user%::inv::lemon}+0%%nl%**Poppies:** %{farm::%discord id of event-user%::inv::poppy}+0%"
+				set footer of embed to "Requested by %discord name of event-member%"
+				set timestamp of embed to now
+				reply with last embed
+		arg-1 = "sell":
+			sellCrops(event-user, event-channel)
+		arg-1 = "unlock":
+			reply with "**Pick a category,** %mention of event-user%" and store it in {_unlockcrop}
+			make new dropdown with id "unlockcrop":
+				set min range of dropdown to 1
+				set max range of dropdown to 1
+				{farm::%discord id of event-user%::unlock::plot1} is true:
+					{farm::%discord id of event-user%::unlock::plot2} is not set
+					add new choice with value "farm/unlock/plot/2" with name "Upgrade: Plot ##2" with desc "-$7.5k" with reaction "trackball" to choices of dropdown
+				{farm::%discord id of event-user%::unlock::plot2} is true:
+					{farm::%discord id of event-user%::unlock::plot3} is not set
+					add new choice with value "farm/unlock/plot/3" with name "Upgrade: Plot ##3" with desc "-$15k" with reaction "trackball" to choices of dropdown
+				add new choice with value "farm/unlock/crop" with name "> Additional Crops" with desc "Better crops make more money." with reaction "palm_tree" to choices of dropdown
+				add new choice with value "farm/unlock/tech" with name "> Technologies" with desc "View & Upgrade Crop Efficiency." with reaction "cd" to choices of dropdown
+				add new choice with value "farm/unlock/anticure" with name "> Adaption" with desc "Counter government investigation efforts." with reaction "running_shirt_with_sash" to choices of dropdown
+			set components of {_unlockcrop} to last dropdown
+
+on dropdown update:
+	if selected value is "farm/growplot/corn/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 2:
+			reply with "Not enough funds! ($2 required) %mention of event-user%"
+			stop
+		remove 2 from {farm::%discord id of event-user%::funds} 
+		reply with "Growing corn. %mention of event-user% This will take 10 minutes."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Corn"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 10 minutes 
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 10 minutes from now 
+	if selected value is "farm/growplot/potato/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 15:
+			reply with "Not enough funds! ($15 required) %mention of event-user%"
+			stop
+		remove 15 from {farm::%discord id of event-user%::funds}
+		reply with "Growing potatoes. %mention of event-user% This will take 30 minutes."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Potato"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 30 minutes
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 30 minutes from now 
+	if selected value is "farm/growplot/apple/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 30:
+			reply with "Not enough funds! ($30 required) %mention of event-user%"
+			stop
+		remove 30 from {farm::%discord id of event-user%::funds}
+		reply with "Growing apples. %mention of event-user% This will take 1 hour and 15 minutes."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Apples"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 75 minutes
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 75 minutes from now 	
+	if selected value is "farm/growplot/pineapple/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 50:
+			reply with "Not enough funds! ($50 required) %mention of event-user%"
+			stop
+		remove 50 from {farm::%discord id of event-user%::funds}
+		reply with "Growing pineapples. %mention of event-user% This will take 2 hours and 25 minutes."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Pineapple"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 145 minutes
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 145 minutes from now 
+	if selected value is "farm/growplot/banana/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 125:
+			reply with "Not enough funds! ($125 required) %mention of event-user%"
+			stop
+		remove 125 from {farm::%discord id of event-user%::funds}
+		reply with "Growing pineapples. %mention of event-user% This will take 3 hours and 50 minutes."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Banana"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 230 minutes
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 230 minutes from now 
+	if selected value is "farm/growplot/grape/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 230:
+			reply with "Not enough funds! ($230 required) %mention of event-user%"
+			stop
+		remove 230 from {farm::%discord id of event-user%::funds}
+		reply with "Growing pineapples. %mention of event-user% This will take 5 hours."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Grape"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 5 hours 
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 5 hours from now 
+	if selected value is "farm/growplot/lemon/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 400:
+			reply with "Not enough funds! ($400 required) %mention of event-user%"
+			stop
+		remove 400 from {farm::%discord id of event-user%::funds}
+		reply with "Growing lemons. %mention of event-user% This will take 6 hours and 30 minutes."
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Lemon"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 390 minutes
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 390 minutes from now 
+	if selected value is "farm/growplot/poppy/%{farm::%discord id of event-user%::picktheplot}%":
+		{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} is set:
+			reply with "You are already growing **%{farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop}%** in plot **%{farm::%discord id of event-user%::picktheplot}%**. %mention of event-user%!"
+			stop
+		{farm::%discord id of event-user%::funds} < 200:
+			reply with "Not enough funds! ($200 required) %mention of event-user%"
+			stop
+		remove 400 from {farm::%discord id of event-user%::funds}
+		reply with "Growing lemons. %mention of event-user% This will take 1 day."
+		{farm::%discord id of event-user%::cure::research} is set:
+			add 0.25 to {farm::%discord id of event-user%::cure::poppygrown}
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::crop} to "Poppy"
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::start} to now
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::end} to 1 day
+		set {farm::%discord id of event-user%::%{farm::%discord id of event-user%::picktheplot}%::endtime} to 1 day from now
+	if selected value is "farm/unlock/plot/2":
+		{farm::%discord id of event-user%::unlock::plot2} is not set
+		{farm::%discord id of event-user%::funds} >= 7500:
+			remove 7500 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::plot2} to true
+			reply with "Purchased: **Plot 2** for $7.5k. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($7.5k required) %mention of event-user%"
+	if selected value is "farm/unlock/plot/3":
+		{farm::%discord id of event-user%::unlock::plot2} is not set
+		{farm::%discord id of event-user%::funds} >= 15000:
+			remove 15000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::plot3} to true
+			reply with "Purchased: **Plot 3** for $15k. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($15k required) %mention of event-user%"
+	if selected value is "farm/unlock/crop/apple":
+		{farm::%discord id of event-user%::unlock::cropapple} is not set
+		{farm::%discord id of event-user%::funds} >= 350:
+			remove 350 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::cropapple} to true
+			reply with "Purchased: **Access to Apple Crops** for $350. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($350 required) %mention of event-user%"
+	if selected value is "farm/unlock/crop/pineapple":
+		{farm::%discord id of event-user%::unlock::croppineapple} is not set
+		{farm::%discord id of event-user%::funds} >= 800:
+			remove 800 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::croppineapple} to true
+			reply with "Purchased: **Access to Pineapple Crops** for $800. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($800 required) %mention of event-user%"
+	if selected value is "farm/unlock/crop/banana":
+		{farm::%discord id of event-user%::unlock::cropbanana} is not set
+		{farm::%discord id of event-user%::funds} >= 2000:
+			remove 2000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::cropbanana} to true
+			reply with "Purchased: **Access to Banana Crops** for $2000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($2000 required) %mention of event-user%"
+	if selected value is "farm/unlock/crop/grape":
+		{farm::%discord id of event-user%::unlock::cropgrape} is not set
+		{farm::%discord id of event-user%::funds} >= 5000:
+			remove 5000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::cropgrape} to true
+			reply with "Purchased: **Access to Banana Crops** for $5000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($5000 required) %mention of event-user%"
+	if selected value is "farm/unlock/crop/lemon":
+		{farm::%discord id of event-user%::unlock::croplemon} is not set
+		{farm::%discord id of event-user%::funds} >= 8000:
+			remove 8000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::croplemon} to true
+			reply with "Purchased: **Access to Lemon Crops** for $8000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($8000 required) %mention of event-user%"
+	if selected value is "farm/unlock/crop/poppies":
+		{farm::%discord id of event-user%::unlock::croppoppy} is not set
+		{farm::%discord id of event-user%::funds} >= 10000:
+			remove 10000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::croppoppy} to true
+			reply with "Purchased: **Access to Illegal Poppy Crops** for $10000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($10000 required) %mention of event-user%"
+	if selected value is "farm/unlock/crop":
+		make new dropdown with id "croplist":
+			set min range of dropdown to 1
+			set max range of dropdown to 1
+			{farm::%discord id of event-user%::unlock::cropapple} is not set:
+				add new choice with value "farm/unlock/crop/apple" with name "Unlock: Apple" with desc "-$350, -$30/crop" with reaction "apple" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::croppineapple} is not set:	
+				add new choice with value "farm/unlock/crop/pineapple" with name "Unlock: Pineapples" with desc "-$800, -$50/crop" with reaction "pineapple" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::cropbanana} is not set:	
+				add new choice with value "farm/unlock/crop/banana" with name "Unlock: Bananas" with desc "-$2k, -$125/crop" with reaction "banana" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::cropgrape} is not set:	
+				add new choice with value "farm/unlock/crop/grape" with name "Unlock: Grapes" with desc "-$5k, -$230/crop" with reaction "grapes" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::croplemon} is not set:	
+				add new choice with value "farm/unlock/crop/lemon" with name "Unlock: Lemons" with desc "-$8k, -$400/crop" with reaction "lemon" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::croppoppy} is not set:	
+				add new choice with value "farm/unlock/crop/poppies" with name "Illegal: Poppies" with desc "-$10k, -$200/crop" with reaction "tulip" to choices of dropdown
+			send "**Pick a crop.** %mention of event-user%" to event-channel with last dropdown
+	if selected value is "farm/unlock/tech":
+		set {_req} to yml value "%{farm::%discord id of event-user%::level}+1%" from file "plugins\Skript\scripts\!farmxp.yml"
+		{farm::%discord id of event-user%::crops} >= 100:
+			set {_star} to ": 1"
+			set {_reqcrop} to 1000
+		{farm::%discord id of event-user%::crops} >= 1000:
+			set {_star} to ": 2"
+			set {_reqcrop} to 5000
+		{farm::%discord id of event-user%::crops} >= 5000:
+			set {_star} to ": 3"
+			set {_reqcrop} to 10000
+		{farm::%discord id of event-user%::crops} >= 10000:
+			set {_star} to ": 4"
+			set {_reqcrop} to 100000
+		{farm::%discord id of event-user%::crops} >= 100000:
+			set {_star} to ": 5"
+			set {_reqcrop} to 0
+		{_star} is not set:
+			set {_star} to ""
+			set {_reqcrop} to 100
+		make embed:
+			set title of embed to "%event-user%'s Technologies"
+			set color of embed to color from rgb 35, 219, 207
+			add inline field named "Farming Level: %{farm::%discord id of event-user%::level}+0%/25 (%({farm::%discord id of event-user%::xp}+0)/{_req}%%%)" with value "*Collect crops to gain farming experience.*%nl%`REWARDS`%nl%　~~%{farm::%discord id of event-user%::level}*5%~~ %({farm::%discord id of event-user%::level}+1)*5% **Farming Efficiency**%nl%　~~%{farm::%discord id of event-user%::level}*0.5%~~ %({farm::%discord id of event-user%::level}+1)*0.5% **Authority**%nl%　~~-%({farm::%discord id of event-user%::level}+0)*0.25%%%~~ -%({farm::%discord id of event-user%::level}+1)*0.25%%% **Investigation Speed**" to fields of embed
+			add inline field named "Crop Efficiency: %{farm::%discord id of event-user%::cropefficiency}+0%" with value "*Chance for multiple grown crops. A base of 100 would grant double crops; values more than 100 would grant triple drops.*%nl%**Crop Milestone%{_star}%**%nl%Harvested: [%{farm::%discord id of event-user%::crops}+0%/%{_reqcrop}%]%nl%+75 **Crop Efficiency**/level." to fields of embed
+			set footer of embed to "Funds: $%{farm::%discord id of event-user%::funds}%"
+			set timestamp of embed to now
+			reply with last embed
+	if selected value is "farm/unlock/anticure":
+		make new dropdown with id "anticure":
+			set min range of dropdown to 1
+			set max range of dropdown to 1
+			{farm::%discord id of event-user%::unlock::anticurehide} is not set:
+				add new choice with value "farm/unlock/anticure/0" with name "Secure Channels" with desc "-$1k, decreased chance of detection" with reaction "lock" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::anticure1} is not set:
+				add new choice with value "farm/unlock/anticure/1" with name "Case Hardening 1" with desc "-$1k, +10%% requirement" with reaction "mag" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::anticure2} is not set:	
+				{farm::%discord id of event-user%::unlock::anticure1} is set
+				add new choice with value "farm/unlock/anticure/2" with name "Case Hardening 2" with desc "-$2k, +20%% requirement" with reaction "mag" to choices of dropdown
+			{farm::%discord id of event-user%::unlock::anticure3} is not set:	
+				{farm::%discord id of event-user%::unlock::anticure2} is set
+				add new choice with value "farm/unlock/anticure/3" with name "Case Hardening 3" with desc "-$3k, +20%% requirement" with reaction "mag" to choices of dropdown
+			send "**Pick a upgrade.** %mention of event-user%" to event-channel with last dropdown
+	if selected value is "farm/unlock/anticure/0":
+		{farm::%discord id of event-user%::unlock::anticurehide} is not set
+		{farm::%discord id of event-user%::funds} >= 1000:
+			remove 1000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::anticurehide} to true
+			reply with "Purchased: **Secure Channels Upgrade** for $1000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($1000 required) %mention of event-user%"
+	if selected value is "farm/unlock/anticure/1":
+		{farm::%discord id of event-user%::unlock::anticure1} is not set
+		{farm::%discord id of event-user%::funds} >= 1000:
+			remove 1000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::anticure1} to true
+			reply with "Purchased: **Case Hardening 1** for $1000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($1000 required) %mention of event-user%"
+	if selected value is "farm/unlock/anticure/2":
+		{farm::%discord id of event-user%::unlock::anticure1} is set
+		{farm::%discord id of event-user%::unlock::anticure2} is not set
+		{farm::%discord id of event-user%::funds} >= 2000:
+			remove 2000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::anticure1} to true
+			reply with "Purchased: **Case Hardening 2** for $2000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($2000 required) %mention of event-user%"
+	if selected value is "farm/unlock/anticure/3":
+		{farm::%discord id of event-user%::unlock::anticure2} is set
+		{farm::%discord id of event-user%::unlock::anticure3} is not set
+		{farm::%discord id of event-user%::funds} >= 3000:
+			remove 3000 from {farm::%discord id of event-user%::funds}
+			set {farm::%discord id of event-user%::unlock::anticure1} to true
+			reply with "Purchased: **Case Hardening 3** for $3000. %mention of event-user%"
+		else:
+			reply with "Not enough funds! ($3000 required) %mention of event-user%"
+
+disky command:
+	{farm::%discord id of event-user%::cure::research} is set:
+		set {_c} to difference between {farm::%discord id of event-user%::cure::lastnow} and now
+		set {_d} to (unix timestamp of ({_c} later)) - (unix timestamp of now)
+		set {_completed} to {_d}*{farm::%discord id of event-user%::cure::funding}
+		add {_completed} to {farm::%discord id of event-user%::cure::research}
+		set {_base} to 2628000
+		{farm::%discord id of event-user%::unlock::anticurehide} is set:
+			add 0.05 to {_add}
+		{farm::%discord id of event-user%::unlock::anticure1} is set:
+			add 0.1 to {_add}
+		{farm::%discord id of event-user%::unlock::anticure2} is set:
+			add 0.2 to {_add}
+		{farm::%discord id of event-user%::unlock::anticure3} is set:
+			add 0.2 to {_add}
+		set {_done} to {_base}*(1+{_add})
+		set {_fund.inv} to log({farm::%discord id of event-user%::inv::poppy}, 2)
+		set {farm::%discord id of event-user%::cure::funding} to {farm::%discord id of event-user%::finepaid}+1+{_fund.inv}+{farm::%discord id of event-user%::cure::poppygrown}
+	{farm::%discord id of event-user%::cure::research} >= {_done}:
+		set {_skill} to {farm::%discord id of event-user%::level}
+		set {_r} to random integer between 50 and 135
+		send "**Game over!** You are found guilty of planting illegal substances. Your farm has now been destroyed, and you are now spending %{_r}% years in prison. %mention of event-user%" to event-channel
+		delete {farm::%discord id of event-user%::*}
+		wait 10 ticks
+		set {farm::%discord id of event-user%::level} to {_skill}
+	else if {farm::%discord id of event-user%::cure::research} >= 2365200:
+		send "**Warning!** The investigation is close to completion, pay the fine now to avoid game over. `=farm payfine` %mention of event-user%" to event-channel
+	else if {farm::%discord id of event-user%::cure::research} >= 1971000:
+		send "**Warning!** The investigation is almost complete, you should pay the fine now to avoid game over. `=farm payfine` %mention of event-user%" to event-channel
+	else if {farm::%discord id of event-user%::cure::research} >= 1314000:
+		send "**Warning!** The investigation is 50%% complete. A fine can now be paid to stop the investigation. `=farm payfine` %mention of event-user%" to event-channel
+	else if {farm::%discord id of event-user%::cure::research} >= 657000:
+		send "**Warning!** The investigation is 25%% complete. Buy Case Hardening to slow down the investigation. %mention of event-user%" to event-channel
+	{farm::%discord id of event-user%::crops} >= 100:
+		add 75 to {_con}
+	{farm::%discord id of event-user%::crops} >= 1000:
+		add 75 to {_con}
+	{farm::%discord id of event-user%::crops} >= 5000:
+		add 75 to {_con}
+	{farm::%discord id of event-user%::crops} >= 10000:
+		add 75 to {_con}
+	{farm::%discord id of event-user%::crops} >= 100000:
+		add 75 to {_con}
+	set {farm::%discord id of event-user%::cropefficiency} to {farm::%discord id of event-user%::level}*5+{_con}
+	{farm::%discord id of event-user%::1::crop} is set:
+		set {_crop} to difference between {farm::%discord id of event-user%::1::start} and now
+		{_crop} > {farm::%discord id of event-user%::1::end}:
+			generateCrop(event-user, event-channel, "%{farm::%discord id of event-user%::1::crop}%", 1)
+			wait 30 ticks
+			delete {farm::%discord id of event-user%::1::*}
+	{farm::%discord id of event-user%::2::crop} is set:
+		set {_crop} to difference between {farm::%discord id of event-user%::2::start} and now
+		{_crop} > {farm::%discord id of event-user%::2::end}:
+			generateCrop(event-user, event-channel, "%{farm::%discord id of event-user%::2::crop}%", 2)
+			wait 30 ticks
+			delete {farm::%discord id of event-user%::2::*}
+	{farm::%discord id of event-user%::3::crop} is set:
+		set {_crop} to difference between {farm::%discord id of event-user%::3::start} and now
+		{_crop} > {farm::%discord id of event-user%::3::end}:
+			generateCrop(event-user, event-channel, "%{farm::%discord id of event-user%::3::crop}%", 3)
+			wait 30 ticks
+			delete {farm::%discord id of event-user%::3::*}
+
+
+function sellCrops(u: user, c: channel):
+	set {_cd} to discord id of {_c}
+	set {_id} to discord id of {_u}
+	{farm::%{_id}%::inv::poppy}+0 >= 1:
+		{farm::%{_id}%::cure::research} is set
+		add 0.03*{farm::%{_id}%::inv::poppy} to {farm::%{_id}%::cure::poppygrown}
+	set {_corn} to {farm::%{_id}%::inv::corn}*1
+	set {_potato} to {farm::%{_id}%::inv::potato}*3
+	set {_apple} to {farm::%{_id}%::inv::apple}*7
+	set {_pineapple} to {farm::%{_id}%::inv::pineapple}*15
+	set {_banana} to {farm::%{_id}%::inv::banana}*22
+	set {_grape} to {farm::%{_id}%::inv::grape}*58
+	set {_lemon} to {farm::%{_id}%::inv::lemon}*130
+	set {_poppy} to {farm::%{_id}%::inv::poppy}*150
+	delete {farm::%{_id}%::inv::*}
+	set {_profit} to {_corn}+{_potato}+{_apple}+{_pineapple}+{_banana}+{_grape}+{_lemon}+{_poppy}
+	add {_profit} to {farm::%{_id}%::funds}
+	send "%mention of {_u}%; Sold all crops for **$%{_profit}%**" to channel with id {_cd}
+
+function generateCrop(u: user, c: channel, crop: text, plotid: integer):
+	set {_cd} to discord id of {_c}
+	set {_id} to discord id of {_u}
+	{_crop} = "corn":
+		set {_amount} to random integer between 2 and 5
+		set {_xp} to {_amount}*1
+	{_crop} = "potato":
+		set {_amount} to random integer between 4 and 5
+		set {_xp} to {_amount}*4
+	{_crop} = "apple":
+		set {_amount} to random integer between 4 and 7
+		set {_xp} to {_amount}*8
+	{_crop} = "pineapple":
+		set {_amount} to random integer between 3 and 4
+		set {_xp} to {_amount}*16
+	{_crop} = "banana":
+		set {_amount} to random integer between 6 and 14
+		set {_xp} to {_amount}*12
+	{_crop} = "grape":
+		set {_amount} to random integer between 4 and 7
+		set {_xp} to {_amount}*22
+	{_crop} = "lemon":
+		set {_amount} to random integer between 4 and 7
+		set {_xp} to {_amount}*28
+	{_crop} = "poppy":
+		set {_amount} to random integer between 5 and 8
+		set {_xp} to {_amount}*20
+	set {_multiply} to floor({farm::%{_id}%::cropefficiency}/100)+1
+	set {_x.a} to floor({farm::%{_id}%::cropefficiency}/100)*100
+	set {_x.b} to {farm::%{_id}%::cropefficiency}-{_x.a}
+	chance of {_x.b}%:
+		add 1 to {_multiply}
+	{_crop} = "poppy":
+		{farm::%{_id}%::unlock::anticurehide} is set:
+			chance of 10%:
+				set {_1} to true
+		else:
+			chance of 25%:
+				set {_1} to true
+		{_1} is true
+		{farm::%{_id}%::cure::research} is not set
+		set {farm::%{_id}%::cure::research} to 0
+		send ":warning: **Warning** Re-sellers has reported %discord mention of {_u}% being suspicious. Investigators are on scene and mobilizing." to channel with id {_cd}
+	wait 15 ticks
+	add {_xp} to {farm::%{_id}%::xp}
+	add {_multiply}*{_amount} to {_add}
+	add {_add} to {farm::%{_id}%::inv::%{_crop}%}
+	add {_add} to {farm::%{_id}%::crops}
+	send "%discord mention of {_u}%, collected **%{_add}%**x of **%{_crop}%**.%nl%`+`+%{_xp}% XP" to channel with id {_cd}
+	set {_req} to yml value "%{farm::%{_id}%::level}+1%" from file "plugins\Skript\scripts\!farmxp.yml"
+	{farm::%{_id}%::xp} >= {_req}:
+		{_req} is not 0
+		remove {_req} from {farm::%{_id}%::xp}
+		add 1 to {farm::%{_id}%::level}
+		{farm::%{_id}%::level} = 5 or 10 or 15 or 20 or 25:
+			send "%discord mention of {_u}%, you have leveled up farming to **%{farm::%{_id}%::level}%**." to channel with id {_cd}
