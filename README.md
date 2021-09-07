@@ -9,6 +9,7 @@ Features | Avaliable?
 Mod: Autonickname | :white_check_mark: 
 Mod: Automute | 
 Mod: DM Assist |
+Achievements |
 Redesigned Help | 
 Puzzles |
 Quizzes |
