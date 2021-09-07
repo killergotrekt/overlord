@@ -6,6 +6,9 @@ Beta build of Campaign Mode. Unplayable
 
 Not compatible with any other version.
 
+## Special
+*beta2 has more features than beta1.*
+
 Features | Avaliable?
 ------------ | -------------
 Mod: Autonickname | 
