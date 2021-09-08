@@ -32,4 +32,5 @@ Tutorial for setting up this bot on version 0.12.2.
 7. Take all the files (.sk and .yml) and drag it into `/plugins/Skript/scripts`
 8. Open file `settings.yml` and change the code to your discord bot token
 9. Go to directory `/plugins/Skript` and make a new folder called `userdata`
-10. Restart your minecraft Server, and done
+10. Go through every file in `plugins/Skript/scripts` with an **.sk** extension, and go to line 2 and replace `Overlord` with your bot's name (spaces allowed)
+11. Restart your minecraft Server, and done
